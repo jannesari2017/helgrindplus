@@ -1,0 +1,21 @@
+# This file contains few extra suppression for helgrind.
+{
+    openmp replacement: team_barrier_wait uses atomic instructions
+    Helgrind:Race
+    fun:gomp_team_barrier_wait_end
+}
+{
+    openmp replacement: barrier_wait uses atomic instructions
+    Helgrind:Race
+    fun:gomp_barrier_wait_end
+}
+{
+    openmp replacement: team_start
+    Helgrind:Race
+    fun:gomp_team_start
+}
+{
+    openmp replacement: work_share_start
+    Helgrind:Race
+    fun:gomp_work_share_start
+}

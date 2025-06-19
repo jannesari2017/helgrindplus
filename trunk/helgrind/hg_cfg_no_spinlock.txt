@@ -1,0 +1,382 @@
+Sammlung von nicht-spinlock-Schleifen
+=====================================
+
+von helgrindtest
+----------------
+
+//////////////////////////////////////////////////////////
+// 0x53464e1 -> ( 0x53464e7 -> 0x53464ea ) -> 0x53464e1
+//////////////////////////////////////////////////////////
+
+in /lib/libc.so.6:
+  while (runp != NULL)
+    if (runp->dso_handle == dso_handle)
+      break;
+    else
+      {
+        lastp = runp;
+        runp = runp->next;
+      }
+
+   e44c0:       55                      push   %rbp
+   e44c1:       48 8b 05 20 c9 27 00    mov    0x27c920(%rip),%rax        # 360de8 <getdate_err+0x4>
+   e44c8:       49 89 f9                mov    %rdi,%r9
+   e44cb:       48 89 e5                mov    %rsp,%rbp
+   e44ce:       48 85 c0                test   %rax,%rax
+   e44d1:       74 1f                   je     e44f2 <__register_atfork+0x1a2>
+   e44d3:       45 31 d2                xor    %r10d,%r10d
+   e44d6:       48 39 78 20             cmp    %rdi,0x20(%rax)
+   e44da:       48 89 c2                mov    %rax,%rdx
+   e44dd:       75 0b                   jne    e44ea <__register_atfork+0x19a>
+   e44df:       eb 16                   jmp    e44f7 <__register_atfork+0x1a7>
+
+0x53464e1:
+   e44e1:       4c 39 4a 20             cmp    %r9,0x20(%rdx)
+   e44e5:       74 0d                   je     e44f4 <__register_atfork+0x1a4>
+0x53464e7:
+   e44e7:       48 89 d0                mov    %rdx,%rax
+0x53464ea:
+   e44ea:       48 8b 10                mov    (%rax),%rdx
+   e44ed:       48 85 d2                test   %rdx,%rdx
+   e44f0:       75 ef                   jne    e44e1 <__register_atfork+0x191>
+
+IRSB 0x53464e1 {
+   t0:I64   t1:I64   t2:I64   t3:I64   t4:I64   t5:I64   t6:I1   t7:I64
+   t8:I64   t9:I64   t10:I64   t11:I64   t12:I64   t13:I1   t14:I1   
+   ------ IMark(0x53464E1, 4) ------
+   t5 = GET:I64(16)
+   t4 = Add64(t5,0x20:I64)
+   t2 = LDle:I64(t4)
+   t1 = GET:I64(72)
+   IR-NoOp
+   PUT(128) = 0x8:I64
+   PUT(136) = t2
+   PUT(144) = t1
+   ------ IMark(0x53464E5, 2) ------
+   PUT(168) = 0x53464E5:I64
+   IR-NoOp
+   t13 = CmpEQ64(t2,t1)
+   t12 = 1Uto64(t13)
+   t11 = t12
+   t14 = 64to1(t11)
+   t6 = t14
+   if (t6) goto {Boring} 0x53464F4:I64
+   goto {Boring} 0x53464E7:I64
+}
+
+IRSB 0x53464ea {
+   t0:I64   t1:I64   t2:I64   t3:I64   t4:I64   t5:I1   t6:I64   t7:I64
+   t8:I64   t9:I64   t10:I64   t11:I64   t12:I1   t13:I1   
+
+   ------ IMark(0x53464EA, 3) ------
+   t0 = GET:I64(0)
+   t4 = LDle:I64(t0)
+   PUT(16) = t4
+   ------ IMark(0x53464ED, 3) ------
+   PUT(128) = 0x14:I64
+   PUT(136) = t4
+   PUT(144) = 0x0:I64
+   ------ IMark(0x53464F0, 2) ------
+   PUT(168) = 0x53464F0:I64
+   IR-NoOp
+   t12 = CmpEQ64(t4,0x0:I64)
+   t11 = 1Uto64(t12)
+   t10 = t11
+   t13 = 64to1(t10)
+   t5 = t13
+   if (t5) goto {Boring} 0x53464F2:I64
+   goto {Boring} 0x53464E1:I64
+}
+
+//////////////////////////////////////////////////////////
+// 0x5297409 <=> 0x5297400
+//////////////////////////////////////////////////////////
+
+30: __cxa_finalize (void *d)
+31: {
+32:   struct exit_function_list *funcs;
+33: 
+34:  restart:
+35:   for (funcs = __exit_funcs; funcs; funcs = funcs->next)
+36:     {
+37:       struct exit_function *f;
+38: 
+39:       for (f = &funcs->fns[funcs->idx - 1]; f >= &funcs->fns[0]; --f)
+40:         {
+41:           void (*cxafn) (void *arg, int status);
+42:           void *cxaarg;
+43: 
+44:           if ((d == NULL || d == f->func.cxa.dso_handle)
+45:               /* We don't want to run this cleanup more than once.  */
+46:               && (cxafn = f->func.cxa.fn,
+47:                   cxaarg = f->func.cxa.arg,
+48:                   ! catomic_compare_and_exchange_bool_acq (&f->flavor, ef_free,
+49:                                                            ef_cxa)))
+50:             {
+51:               uint64_t check = __new_exitfn_called;
+52: 
+53: #ifdef PTR_DEMANGLE
+54:               PTR_DEMANGLE (cxafn);
+55: #endif
+56:               cxafn (cxaarg, 0);
+57: 
+58:               /* It is possible that that last exit function registered
+59:                  more exit functions.  Start the loop over.  */
+60:               if (__builtin_expect (check != __new_exitfn_called, 0))
+61:                 goto restart;
+62:             }
+63:         }
+64:     }
+65: 
+66:   /* Remove the registered fork handlers.  We do not have to
+67:      unregister anything if the program is going to terminate anyway.  */
+68: #ifdef UNREGISTER_ATFORK
+69:   if (d != NULL)
+70:     UNREGISTER_ATFORK (d);
+71: #endif
+72: }
+
+    353c0:       41 56                   push   %r14
+   353c2:       41 55                   push   %r13
+(Zeile 30): [%r13] void *d
+   353c4:       49 89 fd                mov    %rdi,%r13
+   353c7:       41 54                   push   %r12
+   353c9:       55                      push   %rbp
+   353ca:       53                      push   %rbx
+(Zeile 35): [%r14] funcs = __exit_funcs
+   353cb:       4c 8b 35 d6 70 32 00    mov    0x3270d6(%rip),%r14        # 35c4a8 <__check_rhosts_file+0x2bc>
+(Zeile 35): funcs == NULL ?
+   353d2:       4d 85 f6                test   %r14,%r14
+   353d5:       0f 84 97 00 00 00       je     35472 <__cxa_finalize+0xb2>
+(Zeile 39): f = &funcs->fns[funcs->idx - 1]
+            [%rax] funcs->idx
+            [%r12] funcs->fns
+            [%rbp] f (pointer)
+   353db:       49 8b 46 08             mov    0x8(%r14),%rax
+   353df:       4d 8d 66 10             lea    0x10(%r14),%r12
+   353e3:       48 c1 e0 05             shl    $0x5,%rax
+   353e7:       49 8d 6c 06 f0          lea    -0x10(%r14,%rax,1),%rbp
+(Zeile 39): f >= &funcs->fns[0] ?
+   353ec:       49 39 ec                cmp    %rbp,%r12
+   353ef:       77 75                   ja     35466 <__cxa_finalize+0xa6>
+(Zeile 44): d == NULL ?
+   353f1:       4d 85 ed                test   %r13,%r13
+   353f4:       75 13                   jne    35409 <__cxa_finalize+0x49>
+
+   353f6:       e9 95 00 00 00          jmpq   35490 <__cxa_finalize+0xd0>
+   353fb:       0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+
+0x5297400:
+(Zeile 44): f--
+   35400:       48 83 ed 20             sub    $0x20,%rbp
+(Zeile 39): f >= &funcs->fns[0] ?
+   35404:       49 39 ec                cmp    %rbp,%r12
+   35407:       77 5d                   ja     35466 <__cxa_finalize+0xa6>
+
+0x5297409:
+(Zeile 44): d == f->func.cxa.dso_handle ?
+   35409:       4c 39 6d 18             cmp    %r13,0x18(%rbp)
+   3540d:       0f 1f 00                nopl   (%rax)
+   35410:       75 ee                   jne    35400 <__cxa_finalize+0x40>
+
+(Zeile 45): cxafn = f->func.cxa.fn
+            [%rcx] cxafn = f->func.cxa.fn
+   35412:       48 8b 4d 08             mov    0x8(%rbp),%rcx
+(Zeile 46): cxaarg = f->func.cxa.arg
+            [%rdi] cxaarg = f->func.cxa.arg
+   35416:       48 8b 7d 10             mov    0x10(%rbp),%rdi
+
+(Zeile 48): ! catomic_compare_and_exchange_bool_acq (&f->flavor, ef_free, ef_cxa)))
+   3541a:       31 d2                   xor    %edx,%edx
+   3541c:       b8 04 00 00 00          mov    $0x4,%eax
+   35421:       64 83 3c 25 18 00 00    cmpl   $0x0,%fs:0x18
+   35428:       00 00 
+   3542a:       74 01                   je     3542d <__cxa_finalize+0x6d>
+   3542c:       f0 48 0f b1 55 00       lock cmpxchg %rdx,0x0(%rbp)
+   35432:       48 83 f8 04             cmp    $0x4,%rax
+   35436:       75 c8                   jne    35400 <__cxa_finalize+0x40>
+
+(Zeile 51): uint64_t check = __new_exitfn_called;
+   35438:       48 8b 1d 01 b9 32 00    mov    0x32b901(%rip),%rbx        # 360d40 <_nl_msg_cat_cntr+0x90>
+
+(Zeile 56)
+   3543f:       31 f6                   xor    %esi,%esi
+
+(Zeile 54): PTR_DEMANGLE(cxafn);
+   35441:       48 c1 c9 11             ror    $0x11,%rcx
+   35445:       64 48 33 0c 25 30 00    xor    %fs:0x30,%rcx
+   3544c:       00 00 
+
+(Zeile 56): cxafn(cxaarg, 0);
+   3544e:       ff d1                   callq  *%rcx
+
+(Zeile 60): if (__builtin_expect (check != __new_exitfn_called, 0))
+   35450:       48 3b 1d e9 b8 32 00    cmp    0x32b8e9(%rip),%rbx        # 360d40 <_nl_msg_cat_cntr+0x90>
+
+(Zeile 61): goto restart;
+   35457:       0f 85 6e ff ff ff       jne    353cb <__cxa_finalize+0xb>
+
+(Zeile 44): f--
+   3545d:       48 83 ed 20             sub    $0x20,%rbp
+(Zeile 39): f >= &funcs->fns[0] ?
+   35461:       49 39 ec                cmp    %rbp,%r12
+   35464:       76 a3                   jbe    35409 <__cxa_finalize+0x49>
+
+(Zeile 35): for: funcs = funcs->next ; funcs ?
+   35466:       4d 8b 36                mov    (%r14),%r14
+   35469:       4d 85 f6                test   %r14,%r14
+   3546c:       0f 85 69 ff ff ff       jne    353db <__cxa_finalize+0x1b>
+
+(Zeile 66 ... 72)
+   35472:       4d 85 ed                test   %r13,%r13
+   35475:       74 10                   je     35487 <__cxa_finalize+0xc7>
+   35477:       5b                      pop    %rbx
+   35478:       5d                      pop    %rbp
+   35479:       41 5c                   pop    %r12
+   3547b:       4c 89 ef                mov    %r13,%rdi
+   3547e:       41 5d                   pop    %r13
+   35480:       41 5e                   pop    %r14
+   35482:       e9 39 f0 0a 00          jmpq   e44c0 <__register_atfork+0x170>
+   35487:       5b                      pop    %rbx
+   35488:       5d                      pop    %rbp
+   35489:       41 5c                   pop    %r12
+   3548b:       41 5d                   pop    %r13
+   3548d:       41 5e                   pop    %r14
+   3548f:       c3                      retq  
+
+(Zeile 45): cxafn = f->func.cxa.fn
+            [%rcx] cxafn = f->func.cxa.fn
+(Zeile 46): cxaarg = f->func.cxa.arg
+            [%rdi] cxaarg = f->func.cxa.arg
+   35490:       48 8b 4d 08             mov    0x8(%rbp),%rcx
+   35494:       48 8b 7d 10             mov    0x10(%rbp),%rdi
+
+(Zeile 48): ! catomic_compare_and_exchange_bool_acq (&f->flavor, ef_free, ef_cxa)))
+   35498:       31 d2                   xor    %edx,%edx
+   3549a:       b8 04 00 00 00          mov    $0x4,%eax
+   3549f:       64 83 3c 25 18 00 00    cmpl   $0x0,%fs:0x18
+   354a6:       00 00 
+   354a8:       74 01                   je     354ab <__cxa_finalize+0xeb>
+   354aa:       f0 48 0f b1 55 00       lock cmpxchg %rdx,0x0(%rbp)
+   354b0:       48 83 f8 04             cmp    $0x4,%rax
+   354b4:       74 0b                   je     354c1 <__cxa_finalize+0x101>
+
+(Zeile 44): f--
+   354b6:       48 83 ed 20             sub    $0x20,%rbp
+(Zeile 39): f >= &funcs->fns[0] ?
+   354ba:       49 39 ec                cmp    %rbp,%r12
+   354bd:       76 d1                   jbe    35490 <__cxa_finalize+0xd0>
+
+   354bf:       eb a5                   jmp    35466 <__cxa_finalize+0xa6>
+
+   354c1:       48 8b 1d 78 b8 32 00    mov    0x32b878(%rip),%rbx        # 360d40 <_nl_msg_cat_cntr+0x90>
+   354c8:       31 f6                   xor    %esi,%esi
+   354ca:       48 c1 c9 11             ror    $0x11,%rcx
+   354ce:       64 48 33 0c 25 30 00    xor    %fs:0x30,%rcx
+
+
+
+//////////////////////////////////////////////////////////
+// 0x534624e <=> 0x5346247
+//////////////////////////////////////////////////////////
+
+/* Same as THREAD_SETMEM, but the member offset can be non-constant.  */
+# define THREAD_SETMEM(descr, member, value) \
+  ({ if (sizeof (descr->member) == 1)                                         \
+       asm volatile ("movb %b0,%%fs:%P1" :                                    \
+                     : "iq" (value),                                          \
+                       "i" (offsetof (struct pthread, member)));              \
+     else if (sizeof (descr->member) == 4)                                    \
+       asm volatile ("movl %0,%%fs:%P1" :                                     \
+                     : IMM_MODE (value),                                      \
+                       "i" (offsetof (struct pthread, member)));              \
+     else                                                                     \
+       {                                                                      \
+         if (sizeof (descr->member) != 8)                                     \
+           /* There should not be any value with a size other than 1,         \
+              4 or 8.  */                                                     \
+           abort ();                                                          \
+                                                                              \
+         asm volatile ("movq %q0,%%fs:%P1" :                                  \
+                       : IMM_MODE ((unsigned long int) value),                \
+                         "i" (offsetof (struct pthread, member)));            \
+       }})
+
+...
+
+void
+__pthread_exit (value)
+     void *value;
+{
+  THREAD_SETMEM (THREAD_SELF, result, value);
+
+  __do_cancel ();
+}
+strong_alias (__pthread_exit, pthread_exit)
+
+...
+
+/* Called when a thread reacts on a cancellation request.  */
+static inline void
+__attribute ((noreturn, always_inline))
+__do_cancel (void)
+{
+  struct pthread *self = THREAD_SELF;
+
+  /* Make sure we get no more cancellations.  */
+  THREAD_ATOMIC_BIT_SET (self, cancelhandling, EXITING_BIT);
+
+  __pthread_unwind ((__pthread_unwind_buf_t *)
+                    THREAD_GETMEM (self, cleanup_jmp_buf));
+}
+
+
+
+00000000000e4200 <pthread_exit>:
+   e4200:       48 83 ec 08             sub    $0x8,%rsp
+   e4204:       8b 15 56 cc 27 00       mov    0x27cc56(%rip),%edx        # 360e60 <argp_program_version_hook+0x10>
+   e420a:       85 d2                   test   %edx,%edx
+   e420c:       74 1b                   je     e4229 <pthread_exit+0x29>
+   e420e:       4c 8b 1d 4b cd 27 00    mov    0x27cd4b(%rip),%r11        # 360f60 <argp_program_version_hook+0x110>
+   e4215:       48 83 c4 08             add    $0x8,%rsp
+   e4219:       49 c1 cb 11             ror    $0x11,%r11
+   e421d:       64 4c 33 1c 25 30 00    xor    %fs:0x30,%r11
+   e4224:       00 00 
+   e4226:       41 ff e3                jmpq   *%r11
+   e4229:       31 ff                   xor    %edi,%edi
+   e422b:       e8 00 0e f5 ff          callq  35030 <exit>
+   e4230:       41 52                   push   %r10
+   e4232:       52                      push   %rdx
+   e4233:       4d 31 d2                xor    %r10,%r10
+   e4236:       ba 02 00 00 00          mov    $0x2,%edx
+   e423b:       64 8b 34 25 48 00 00    mov    %fs:0x48,%esi
+   e4242:       00 
+   e4243:       39 d0                   cmp    %edx,%eax
+   e4245:       75 07                   jne    e424e <pthread_exit+0x4e>
+
+0x5346247:
+   e4247:       b8 ca 00 00 00          mov    $0xca,%eax
+   e424c:       0f 05                   syscall 
+0x534624e:
+   e424e:       89 d0                   mov    %edx,%eax
+   e4250:       87 07                   xchg   %eax,(%rdi)
+   e4252:       85 c0                   test   %eax,%eax
+   e4254:       75 f1                   jne    e4247 <pthread_exit+0x47>
+
+   e4256:       5a                      pop    %rdx
+   e4257:       41 5a                   pop    %r10
+   e4259:       c3                      retq   
+   e425a:       66 0f 1f 44 00 00       nopw   0x0(%rax,%rax,1)
+   e4260:       56                      push   %rsi
+   e4261:       52                      push   %rdx
+   e4262:       c7 07 00 00 00 00       movl   $0x0,(%rdi)
+   e4268:       64 8b 34 25 48 00 00    mov    %fs:0x48,%esi
+   e426f:       00 
+   e4270:       83 ce 01                or     $0x1,%esi
+   e4273:       ba 01 00 00 00          mov    $0x1,%edx
+   e4278:       b8 ca 00 00 00          mov    $0xca,%eax
+   e427d:       0f 05                   syscall 
+   e427f:       5a                      pop    %rdx
+   e4280:       5e                      pop    %rsi
+   e4281:       c3                      retq   
+

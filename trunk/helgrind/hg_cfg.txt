@@ -1,0 +1,126 @@
+
+
+1. Grundblöcke
+==============
+
+In der Informatik bestehen Grundblöcke aus einer Sequenz von Anweisungen, bei
+dem es nur am Ende zu einer Kontrollflussänderung kommen kann.
+Außerdem besitzt ein Grundblock nur einen einzigen Einsprungpunkt.
+
+
+2. Valgrind's Grundblöcke
+=========================
+
+Valgrind ließt Grundblöcke aus dem Binärcode, indem es bei einer Startaddresse
+anfängt und so lange Maschinencode einließt, bis ein Sprung (bedingt oder
+unbedingt) sichtbar wird.
+Somit kann sichergestellt werden, dass sich der Kontrollfluss eines Valgrind-
+Grundblocks sich nur am Ende verzweigt.
+Allerdings ist unklar, ob ein Grundblock nur einen einzigen Einsprungpunkt
+besitzt, da es immer möglich ist, dass von einer anderen Programmstelle aus
+mitten in einen andern Grundblock gesprungen wird.
+
+
+3. Valgrind's Superblöcke
+=========================
+
+Um den Disassemble & Resynthesize - Zyklus zu beschleunigen, werden Grundblöcke
+zusammengeführt zu einem Superblock, solange keine Verzweigung im Kontrollfluss
+zwischen den Grundblöcken auftritt.
+D.h. Eine Verzweigung tritt wenn überhaupt nur im letzten Grundblock eines
+Superblocks auf.
+Maximal 4 Grundblöcke werden zu einem Superblock vereint. Größe und Adresse der
+Grundblöcke werden vom struct VexGuestExtents beschrieben.
+
+
+4. Grundblöcke abschätzen (Valgrind-Grundblöcke spliten)
+=========================
+
+Die Valgrind-Grundblöcke werden zur Laufzeit nach und nach bekannt. Um näher an
+die echte Grundblock-Repräsentation zu kommen, wird erkannt, ob sich ein
+Valgrind-Grundblock komplett innerhalb eines anderen Valgrind-Grundblocks
+befindet. Es wird dann in zwei kleinere Grundblöcke aufgeteilt.
+Dieses Aufteilen wird in handle_new_bb() mit erledigt.  
+
+
+5. Kontrollflussanalyse & Grundblocktypen
+=========================================
+
+Indem der Inhalt der Grundblöcke untersucht wird, kann ein Teil des Kontroll-
+flusses schon statisch bestimmt werden.
+Unter anderem kann der Grundblock in verschiedene Typen klassifiziert werden:
+a) Normaler Block (HG_CFG_Normal): Grundblock hat Ausgangsgrad 1 im CFG.
+b) Vorgelegeter Block (HG_CFG_Inherit): Ein Grundblock, in dem sich ein anderer
+      Grundblock befindet und aufgeteilt wurde. Der vorgelegte Block behält das
+      Größenattribut bei; die Verzweigungen werden allerdings auf den neuen
+      Block übertragen
+c) Verzweigender Grundblock (HG_CFG_Branch): Grundblock mit Ausgangsgrad 2 im
+      CFG.
+d) Funktionsstub (HG_CFG_PLTEntry): Ein PLT-Eintrag im Programmcode, welches
+      eine globale Funktion repräsentiert.
+e) Jumpslot (HG_CFG_Jumpslot): Repräsentiert die Adresse des jump slots welches 
+      zu einem Funktionsstub gehört.
+
+
+6. Schleifensuche
+=================
+
+Problem: - Nur ausgeführte Grundblöcke werden berücksichtigt
+         - Erkennung von Schleifen erschwert
+
+Plan: Tiefensuche implementieren, welches Ahead-Translation anstößt.
+
+7. Probleme mit totem Code
+==========================
+
+In der C-Runtime-Umgebung wird __start_c_main aufgerufen. Dieser Aufruf
+sollte nie terminieren. Der control flow graph analyser übersetzt aber auch den
+toten code, der ein HLT (opcode 0xF4) enthält.
+Valgrind/VEX kann 0xF4 nicht übersetzen.
+
+Folgende Patch behebt dies:
+- Schöner wäre es von Valgrind, einen Fehler auszugeben, da HLT von user-space
+  nie ausgeführt werden dürfte. Allerdings würde unser CFG sonst bei jedem
+  Programm eine irreführende Fehlermeldung ausgeben.   
+
+------------8<-snip------
+
+Index: VEX/priv/guest-amd64/toIR.c
+===================================================================
+--- VEX/priv/guest-amd64/toIR.c  (revision 53)
++++ VEX/priv/guest-amd64/toIR.c  (working copy)
+@@ -13794,6 +13794,14 @@
+       DIP("int $0x%02x\n", (UInt)d64);
+       break;
+    }
++   
++   case 0xF4: /* HLT (wait for interrupt) */
++      if (have66orF2orF3(pfx)) goto decode_failure;
++      dres.whatNext = Dis_StopHere;
++      /* a user-space program should never call this instruction */
++      jmp_lit( Ijk_SigSEGV, 0x0 );
++      DIP("hlt\n");
++      break;
+ 
+    /* ------------------------ Jcond, byte offset --------- */
+ 
+Index: VEX/priv/guest-x86/toIR.c
+===================================================================
+--- VEX/priv/guest-x86/toIR.c (revision 53)
++++ VEX/priv/guest-x86/toIR.c (working copy)
+@@ -12614,6 +12614,14 @@
+ 
+       /* none of the above */
+       goto decode_failure;
++      
++   case 0xF4: /* HLT (wait for interrupt) */
++      if (have66orF2orF3(pfx)) goto decode_failure;
++      dres.whatNext = Dis_StopHere;
++      /* a user-space program should never call this instruction */
++      jmp_lit( Ijk_SigSEGV, 0x0 );
++      DIP("hlt\n");
++      break;
+ 
+    /* ------------------------ Jcond, byte offset --------- */
+ 
+------------8<-snip------

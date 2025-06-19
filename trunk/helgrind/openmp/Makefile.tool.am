@@ -1,0 +1,45 @@
+
+LIBREPLACEGOMP_X86_LINUX = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_x86_linux.a
+
+LIBREPLACEGOMP_AMD64_LINUX = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_amd64_linux.a
+
+LIBREPLACEGOMP_PPC32_LINUX = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_ppc32_linux.a
+
+LIBREPLACEGOMP_PPC64_LINUX = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_ppc64_linux.a
+
+LIBREPLACEGOMP_PPC32_AIX5 = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_ppc32_aix5.a
+
+LIBREPLACEGOMP_PPC64_AIX5 = \
+	$(top_builddir)/helgrind/openmp/libreplacegomp_toolpreload_ppc64_aix5.a
+
+LIBREPLACEGOMP_LDFLAGS_X86_LINUX = \
+	-lpthread \
+	-Wl,--whole-archive \
+	$(LIBREPLACEGOMP_X86_LINUX) \
+	-Wl,--no-whole-archive
+LIBREPLACEGOMP_LDFLAGS_AMD64_LINUX = \
+	-lpthread \
+	-Wl,--whole-archive \
+	$(LIBREPLACEGOMP_AMD64_LINUX) \
+	-Wl,--no-whole-archive
+LIBREPLACEGOMP_LDFLAGS_PPC32_LINUX = \
+	-lpthread \
+	-Wl,--whole-archive \
+	$(LIBREPLACEGOMP_PPC32_LINUX) \
+	-Wl,--no-whole-archive
+LIBREPLACEGOMP_LDFLAGS_PPC64_LINUX = \
+	-lpthread \
+	-Wl,--whole-archive \
+	$(LIBREPLACEGOMP_PPC64_LINUX) \
+	-Wl,--no-whole-archive
+LIBREPLACEGOMP_LDFLAGS_PPC32_AIX5 = \
+	-lpthread \
+	$(LIBREPLACEGOMP_PPC32_AIX5)
+LIBREPLACEGOMP_LDFLAGS_PPC64_AIX5 = \
+	-lpthread \
+	$(LIBREPLACEGOMP_PPC64_AIX5)
