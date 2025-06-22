@@ -1,0 +1,7 @@
+*.iso
+*.vscode
+*.vscode-test
+*.qcow2
+extract
+mnt
+cleanup.bash
