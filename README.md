@@ -65,8 +65,21 @@ $ sudo apt-get install -y \
   valgrind \
   automake autoconf libtool m4 pkg-config
 
-$ scp -P 2222 /path/to/localfile  helgrindplus@localhost:/home/helgrindplus/
+$ scp -P 2222 -r /path/to/localfile  helgrindplus@localhost:/home/helgrindplus/
+
 ```
+
+Download valgrind 3.4.1 from https://sourceware.org/pub/valgrind/
+Then copy it to the vm.
+
+```sh
+$ scp -P 2222 -r /path/to/localfile  helgrindplus@localhost:/home/helgrindplus/
+```
+Then, copy the contents of the trunk to the valgrind source folder
+
+Then, follow the build procedure for valgrind
+
+
 
 to quit: 
 ```sh

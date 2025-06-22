@@ -5,3 +5,5 @@
 extract
 mnt
 cleanup.bash
+*.bz2
+valgrind-3.4.1
