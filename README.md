@@ -1,3 +1,39 @@
+**Published Papers**
+```
+@INPROCEEDINGS{5160998,
+  author={Jannesari, Ali and Kaibin Bao and Pankratius, Victor and Tichy, Walter F.},
+  booktitle={2009 IEEE International Symposium on Parallel & Distributed Processing}, 
+  title={Helgrind+: An efficient dynamic race detector}, 
+  year={2009},
+  volume={},
+  number={},
+  pages={1-13},
+  keywords={Yarn;Detectors;Dynamic programming;Switches;Testing;Debugging;Parallel programming;Parallel processing;System recovery;Event detection},
+  doi={10.1109/IPDPS.2009.5160998}}
+
+@INPROCEEDINGS{5470343,
+  author={Jannesari, Ali and Tichy, Walter F.},
+  booktitle={2010 IEEE International Symposium on Parallel & Distributed Processing (IPDPS)}, 
+  title={Identifying ad-hoc synchronization for enhanced race detection}, 
+  year={2010},
+  volume={},
+  number={},
+  pages={1-10},
+  keywords={Programming profession;Libraries;Switches;Debugging;Runtime;data race detection;race conditions;debugging;parallel programs;ad-hoc synchronization;synchronization primitives;dynamic analysis},
+  doi={10.1109/IPDPS.2010.5470343}}
+
+@ARTICLE{6583165,
+  author={Jannesari, Ali and Tichy, Walter F.},
+  journal={IEEE Transactions on Parallel and Distributed Systems}, 
+  title={Library-Independent Data Race Detection}, 
+  year={2014},
+  volume={25},
+  number={10},
+  pages={2606-2616},
+  keywords={Synchronization;Spinning;Detectors;Libraries;Pipelines;Concurrent computing;Instruction sets;Parallel programming;parallelization libraries;ad hoc synchronization;synchronization primitives;dynamic analysis;data race detection;debugging;multicore},
+  doi={10.1109/TPDS.2013.209}}
+```
+
 **Installation Instruction**
 
 Helgrind+ requires a linux machine with kernel 2.4 or 2.6. Hence, to run Helgrind+ on a modern system, users should download a vm to run an os with the supported kernel.
